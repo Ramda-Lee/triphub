@@ -3,7 +3,7 @@
 이 디렉토리는 TripHub 프로젝트의 전체 문서, 기획, 아키텍처, 학습자료 등을 포함합니다.
 
 ## 📁 문서 구성
-
+- [`ERD/`](./ERD/): 프로젝트 DB 설계
 - [`planning/`](./planning/): 프로젝트 일정 및 계획
 - [`user-stories/`](./user-stories/): 사용자 시나리오 및 요구사항 정의
 - [`architecture/`](./architecture/): 시스템 설계 및 구조 문서
