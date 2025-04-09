@@ -25,7 +25,6 @@ Thumbs.db
 *.swo
 .vscode/
 *.orig
-*.md
 
 # === Logs ===
 *.log
