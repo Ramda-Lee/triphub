@@ -1,9 +1,11 @@
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/triphub
-    username: 
-    password: 
-
+    username:
+    password:
+  redis:
+    host: localhost
+    port: 6379
   jpa:
     hibernate:
       ddl-auto: update
@@ -11,7 +13,15 @@ spring:
     properties:
       hibernate:
         format_sql: true
-
   sql:
     init:
       mode: always
+
+jwt:
+  secret: ThisIsASecretKeyForJWTAndItShouldBeLongEnough123!
+  access-exp: 900000       # 15분 (밀리초)
+  refresh-exp: 604800000   # 7일 (밀리초)
+
+jasypt:
+  encryptor:
+    password: triphubSecret
