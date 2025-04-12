@@ -2,6 +2,7 @@ package com.triphub.auth.service;
 
 import com.triphub.auth.dto.LoginReq;
 import com.triphub.auth.dto.LoginRes;
+import com.triphub.auth.dto.LogoutReq;
 import com.triphub.auth.dto.SignupReq;
 import com.triphub.auth.entity.User;
 import com.triphub.auth.repository.UserRepository;
@@ -21,7 +22,7 @@ import java.time.Duration;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Bockito.when;
+import static org.mockito.Mockito.when;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -282,7 +283,10 @@ class AuthServiceTest {
                 .thenReturn(mock(Claims.class));
 
             // when
-            authService.logout(accessToken, refreshToken);
+            LogoutReq logoutReq = new LogoutReq();
+            logoutReq.setAccessToken(accessToken);
+            logoutReq.setRefreshToken(refreshToken);
+            authService.logout(logoutReq);
 
             // then
             verify(redisTemplate).delete("refresh_token:" + email);
@@ -306,7 +310,10 @@ class AuthServiceTest {
                 .thenReturn(System.currentTimeMillis() + 3600000); // 1시간 후 만료
 
             // when
-            authService.logout(accessToken, refreshToken);
+            LogoutReq logoutReq = new LogoutReq();
+            logoutReq.setAccessToken(accessToken);
+            logoutReq.setRefreshToken(refreshToken);
+            authService.logout(logoutReq);
 
             // then
             verify(redisTemplate).opsForValue().set(

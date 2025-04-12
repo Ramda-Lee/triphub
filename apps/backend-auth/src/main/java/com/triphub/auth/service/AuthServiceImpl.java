@@ -7,7 +7,6 @@ import com.triphub.auth.dto.SignupReq;
 import com.triphub.auth.entity.User;
 import com.triphub.auth.exception.EmailAlreadyExistsException;
 import com.triphub.auth.exception.InvalidCredentialsException;
-import com.triphub.auth.exception.TokenExpiredException;
 import com.triphub.auth.exception.TokenValidationException;
 import com.triphub.auth.repository.UserRepository;
 import com.triphub.auth.security.JwtProvider;
