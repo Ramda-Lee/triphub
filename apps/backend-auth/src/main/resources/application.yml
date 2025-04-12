@@ -1,0 +1,24 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/triphub
+    username: triphub
+    password: ENC(QOHZrw7NMrsq9a388ynXdg==)
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+jwt:
+  secret: ENC(HBoxesBg9PlVIyJliOTNazyLsoGegCQTt3X6NzRA+nZfNmSi4ePL+twdqIPANpTkeLOHzqQlrTI1XjTcrS3HwEL3uxnhNgO2e8dYsmSgbdqOFOX/799aBzpAbnbIm0TkIrpvGaK4wfuyFM63xmp3Kg==)
+  access-exp: 900000  # 15분
+  refresh-exp: 604800000  # 7일
+
+jasypt:
+  encryptor:
+    password: ${JASYPT_ENCRYPTOR_PASSWORD:your-secret-key}
+    algorithm: PBEWithMD5AndDES
+    iv-generator-classname: org.jasypt.iv.NoIvGenerator 
