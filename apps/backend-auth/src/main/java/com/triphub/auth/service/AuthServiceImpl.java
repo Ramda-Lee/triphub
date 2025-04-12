@@ -2,21 +2,27 @@ package com.triphub.auth.service;
 
 import com.triphub.auth.dto.LoginReq;
 import com.triphub.auth.dto.LoginRes;
+import com.triphub.auth.dto.LogoutReq;
 import com.triphub.auth.dto.SignupReq;
 import com.triphub.auth.entity.User;
+import com.triphub.auth.exception.EmailAlreadyExistsException;
+import com.triphub.auth.exception.InvalidCredentialsException;
+import com.triphub.auth.exception.TokenExpiredException;
+import com.triphub.auth.exception.TokenValidationException;
 import com.triphub.auth.repository.UserRepository;
 import com.triphub.auth.security.JwtProvider;
-import jakarta.transaction.Transactional;
+import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 
 @Service
 @RequiredArgsConstructor
-public class AuthServiceImpl implements AuthService{
+public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -27,7 +33,7 @@ public class AuthServiceImpl implements AuthService{
     @Transactional
     public void signup(SignupReq req) {
         if (userRepository.existsByEmail(req.getEmail())) {
-            throw new IllegalArgumentException("이미 가입된 이메일입니다.");
+            throw new EmailAlreadyExistsException(req.getEmail());
         }
 
         User user = User.builder()
@@ -43,17 +49,20 @@ public class AuthServiceImpl implements AuthService{
     @Override
     public LoginRes login(LoginReq req) {
         User user = userRepository.findByEmail(req.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("이메일이 존재하지 않습니다."));
+                .orElseThrow(() -> new InvalidCredentialsException("존재하지 않는 이메일입니다"));
 
         if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
+            throw new InvalidCredentialsException("잘못된 비밀번호입니다");
         }
 
         String accessToken = jwtProvider.generateAccessToken(user.getEmail(), user.getRole());
         String refreshToken = jwtProvider.generateRefreshToken(user.getEmail());
 
-        // Redis에 저장
-        redisTemplate.opsForValue().set("refresh_token:" + user.getEmail(), refreshToken, Duration.ofDays(7));
+        redisTemplate.opsForValue().set(
+                "refresh_token:" + user.getEmail(),
+                refreshToken,
+                Duration.ofDays(7)
+        );
 
         return new LoginRes(accessToken, refreshToken);
     }
@@ -61,17 +70,43 @@ public class AuthServiceImpl implements AuthService{
     @Override
     public String reissue(String refreshToken) {
         if (!jwtProvider.validateToken(refreshToken)) {
-            throw new IllegalArgumentException("유효하지 않은 리프레시 토큰입니다.");
+            throw new TokenValidationException("유효하지 않은 리프레시 토큰입니다");
         }
 
-        String email = jwtProvider.parseToken(refreshToken).getSubject();
+        Claims claims = jwtProvider.parseToken(refreshToken);
+        String email = claims.getSubject();
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-        String savedToken = redisTemplate.opsForValue().get("refresh_token:" + email);
-        if (!refreshToken.equals(savedToken)) {
-            throw new IllegalArgumentException("리프레시 토큰이 일치하지 않습니다.");
+                .orElseThrow(() -> new InvalidCredentialsException("존재하지 않는 사용자입니다"));
+
+        String storedRefreshToken = redisTemplate.opsForValue().get("refresh_token:" + email);
+        if (!refreshToken.equals(storedRefreshToken)) {
+            throw new TokenValidationException("저장된 리프레시 토큰과 일치하지 않습니다");
         }
 
         return jwtProvider.generateAccessToken(email, user.getRole());
+    }
+
+    @Override
+    public void logout(LogoutReq req) {
+        String accessToken = req.getAccessToken();
+        String refreshToken = req.getRefreshToken();
+
+        if (!jwtProvider.validateToken(refreshToken)) {
+            throw new TokenValidationException("유효하지 않은 리프레시 토큰입니다");
+        }
+
+        Claims claims = jwtProvider.parseToken(refreshToken);
+        String email = claims.getSubject();
+
+        redisTemplate.delete("refresh_token:" + email);
+
+        if (jwtProvider.validateToken(accessToken)) {
+            long expiration = jwtProvider.getExpirationFromToken(accessToken);
+            redisTemplate.opsForValue().set(
+                    "blacklist:" + accessToken,
+                    "revoked",
+                    Duration.ofMillis(expiration - System.currentTimeMillis())
+            );
+        }
     }
 }

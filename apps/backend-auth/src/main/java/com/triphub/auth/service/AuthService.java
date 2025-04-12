@@ -2,6 +2,7 @@ package com.triphub.auth.service;
 
 import com.triphub.auth.dto.LoginReq;
 import com.triphub.auth.dto.LoginRes;
+import com.triphub.auth.dto.LogoutReq;
 import com.triphub.auth.dto.SignupReq;
 
 public interface AuthService {
@@ -10,4 +11,6 @@ public interface AuthService {
     LoginRes login(LoginReq req);
 
     String reissue(String refreshToken);
+
+    void logout(LogoutReq req);
 }
