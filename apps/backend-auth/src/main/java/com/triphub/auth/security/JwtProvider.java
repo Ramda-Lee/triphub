@@ -55,4 +55,9 @@ public class JwtProvider {
             return false;
         }
     }
+
+    public long getExpirationFromToken(String token) {
+        Claims claims = parseToken(token);
+        return claims.getExpiration().getTime();
+    }
 }
