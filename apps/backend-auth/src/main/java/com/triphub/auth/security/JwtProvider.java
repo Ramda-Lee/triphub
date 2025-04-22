@@ -1,63 +1,64 @@
 package com.triphub.auth.security;
 
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.security.Key;
 import java.util.Date;
 
-@Component
+@Service
 public class JwtProvider {
+    private final JwtProperties jwtProperties;
     private final Key key;
-    private final long accessTokenValidity;
-    private final long refreshTokenValidity;
-    public JwtProvider(@Value("${jwt.secret}") String secret,
-                       @Value("${jwt.access-exp}") long accessTokenValidity,
-                       @Value("${jwt.refresh-exp}") long refreshTokenValidity) {
-        this.key = Keys.hmacShaKeyFor(secret.getBytes());;
-        this.accessTokenValidity = accessTokenValidity;
-        this.refreshTokenValidity = refreshTokenValidity;
+
+    public JwtProvider(JwtProperties jwtProperties) {
+        this.jwtProperties = jwtProperties;
+        this.key = Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes());
     }
 
     public String generateAccessToken(String email, String role) {
-        return generateToken(email, role, accessTokenValidity);
+        return Jwts.builder()
+                .setSubject(email)
+                .claim("role", role)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + jwtProperties.getAccessTokenExpiration()))
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
     }
 
     public String generateRefreshToken(String email) {
-        return generateToken(email, null, refreshTokenValidity);
-    }
-
-    private String generateToken(String email, String role, long expireMs) {
-        JwtBuilder builder = Jwts.builder()
+        return Jwts.builder()
                 .setSubject(email)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + expireMs))
-                .signWith(key, SignatureAlgorithm.HS256);
-
-        if (role != null) {
-            builder.claim("role", role);
-        }
-
-        return builder.compact();
-    }
-
-    public Claims parseToken(String token) {
-        return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody();
+                .setExpiration(new Date(System.currentTimeMillis() + jwtProperties.getRefreshTokenExpiration()))
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
     }
 
     public boolean validateToken(String token) {
         try {
-            parseToken(token);
+            Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token);
             return true;
-        } catch (JwtException | IllegalArgumentException e) {
+        } catch (Exception e) {
             return false;
         }
     }
 
+    public Claims parseToken(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
     public long getExpirationFromToken(String token) {
-        Claims claims = parseToken(token);
-        return claims.getExpiration().getTime();
+        return parseToken(token).getExpiration().getTime();
     }
 }

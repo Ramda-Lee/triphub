@@ -8,4 +8,4 @@ import lombok.Setter;
 public class LogoutReq {
     private String accessToken;
     private String refreshToken;
-} 
+}

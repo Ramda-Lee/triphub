@@ -10,6 +10,7 @@
 .idea/
 *.log
 out/
+.env
 
 # === React / Node ===
 /frontend/node_modules/

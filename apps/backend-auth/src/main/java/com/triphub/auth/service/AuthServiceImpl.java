@@ -91,7 +91,7 @@ public class AuthServiceImpl implements AuthService {
         String refreshToken = req.getRefreshToken();
 
         if (!jwtProvider.validateToken(refreshToken)) {
-            throw new TokenValidationException("유효하지 않은 리프레시 토큰입니다");
+            throw new IllegalArgumentException("유효하지 않은 리프레시 토큰입니다.");
         }
 
         Claims claims = jwtProvider.parseToken(refreshToken);
@@ -101,11 +101,16 @@ public class AuthServiceImpl implements AuthService {
 
         if (jwtProvider.validateToken(accessToken)) {
             long expiration = jwtProvider.getExpirationFromToken(accessToken);
-            redisTemplate.opsForValue().set(
+            long currentTime = System.currentTimeMillis();
+            long ttl = expiration - currentTime;
+
+            if (ttl > 0) {
+                redisTemplate.opsForValue().set(
                     "blacklist:" + accessToken,
                     "revoked",
-                    Duration.ofMillis(expiration - System.currentTimeMillis())
-            );
+                    Duration.ofMillis(ttl)
+                );
+            }
         }
     }
 }

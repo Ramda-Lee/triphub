@@ -2,7 +2,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/triphub
     username: triphub
-    password: ENC(QOHZrw7NMrsq9a388ynXdg==)
+    password: ENC(k7BZctVQ1XHLCsX139/kIw==)
   jpa:
     hibernate:
       ddl-auto: update
@@ -13,9 +13,9 @@ spring:
       port: 6379
 
 jwt:
-  secret: ENC(HBoxesBg9PlVIyJliOTNazyLsoGegCQTt3X6NzRA+nZfNmSi4ePL+twdqIPANpTkeLOHzqQlrTI1XjTcrS3HwEL3uxnhNgO2e8dYsmSgbdqOFOX/799aBzpAbnbIm0TkIrpvGaK4wfuyFM63xmp3Kg==)
-  access-exp: 900000  # 15분
-  refresh-exp: 604800000  # 7일
+  secret: ENC(rAtSxp+klg57s9t6KuADtfjEJDC1Za6lC31P+3dMbfl/RyDJifR4qF8WcvN2a2OlldijLoO0Z6XU8X/lPFME750Kb6ezBQOkVCG5vu0oGCrmIVwilmWlSgA3jgP5ahkiW4Enu3lh7xZGlbHKOmgpa3MxH9YAuuSH2//kyjvEcWGzPlwkbCe8xL89nQGCowjj5sp3Mxoe1BH+9nzCNrLo5x3ZRW5QLhyB/s7LiKXDqdQ7lluLX1AR7wb29Kru/Evz4FGtGNu2dCsRwiVvhqXlP2u+ziiRfhKTlIt+AlrLHIqtMrY46pbNYPHLzz440jGAuSyJuGAP/4wYuQnv6I6EUspO5/F8W2FfSiAJMZUR+VvJzRvNIcqpCQ==)
+  access-token-expiration: 3600000 # 1시간
+  refresh-token-expiration: 604800000 # 7일
 
 jasypt:
   encryptor:
