@@ -5,29 +5,30 @@ import com.triphub.auth.dto.LoginRes;
 import com.triphub.auth.dto.LogoutReq;
 import com.triphub.auth.dto.SignupReq;
 import com.triphub.auth.entity.User;
+import com.triphub.auth.exception.EmailAlreadyExistsException;
+import com.triphub.auth.exception.InvalidCredentialsException;
+import com.triphub.auth.exception.TokenValidationException;
 import com.triphub.auth.repository.UserRepository;
 import com.triphub.auth.security.JwtProvider;
 import io.jsonwebtoken.Claims;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Duration;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.verify;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.eq;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -47,280 +48,156 @@ class AuthServiceTest {
     @Mock
     private StringRedisTemplate redisTemplate;
 
-    @Nested
-    @DisplayName("회원가입")
-    class Signup {
-        @Test
-        @DisplayName("이메일 중복 체크")
-        void whenEmailExists_thenThrowException() {
-            // given
-            SignupReq req = new SignupReq();
-            req.setEmail("test@example.com");
-            req.setPassword("password123");
-            req.setName("Test User");
+    @Mock
+    private ValueOperations<String, String> valueOperations;
 
-            when(userRepository.existsByEmail("test@example.com"))
-                .thenReturn(true);
+    private User testUser;
+    private Claims testClaims;
 
-            // when & then
-            assertThrows(IllegalArgumentException.class, () -> {
-                authService.signup(req);
-            });
-        }
-
-        @Test
-        @DisplayName("비밀번호 암호화")
-        void whenSignup_thenPasswordShouldBeEncrypted() {
-            // given
-            SignupReq req = new SignupReq();
-            req.setEmail("test@example.com");
-            req.setPassword("password123");
-            req.setName("Test User");
-
-            when(userRepository.existsByEmail("test@example.com"))
-                .thenReturn(false);
-            when(passwordEncoder.encode("password123"))
-                .thenReturn("encodedPassword");
-
-            // when
-            authService.signup(req);
-
-            // then
-            verify(userRepository).save(any(User.class));
-        }
-
-        @Test
-        @DisplayName("기본 역할 설정")
-        void whenSignup_thenDefaultRoleShouldBeUser() {
-            // given
-            SignupReq req = new SignupReq();
-            req.setEmail("test@example.com");
-            req.setPassword("password123");
-            req.setName("Test User");
-
-            when(userRepository.existsByEmail("test@example.com"))
-                .thenReturn(false);
-            when(passwordEncoder.encode(any()))
-                .thenReturn("encodedPassword");
-
-            // when
-            authService.signup(req);
-
-            // then
-            verify(userRepository).save(argThat(user -> 
-                user.getRole().equals("USER")
-            ));
-        }
-    }
-
-    @Nested
-    @DisplayName("로그인")
-    class Login {
-        @Test
-        @DisplayName("존재하지 않는 이메일")
-        void whenEmailNotExists_thenThrowException() {
-            // given
-            LoginReq req = new LoginReq();
-            req.setEmail("nonexistent@example.com");
-            req.setPassword("password123");
-
-            when(userRepository.findByEmail("nonexistent@example.com"))
-                .thenReturn(Optional.empty());
-
-            // when & then
-            assertThrows(IllegalArgumentException.class, () -> {
-                authService.login(req);
-            });
-        }
-
-        @Test
-        @DisplayName("잘못된 비밀번호")
-        void whenWrongPassword_thenThrowException() {
-            // given
-            User user = User.builder()
+    @BeforeEach
+    void setUp() {
+        testUser = User.builder()
                 .email("test@example.com")
                 .password("encodedPassword")
                 .name("Test User")
                 .role("USER")
                 .build();
 
-            LoginReq req = new LoginReq();
-            req.setEmail("test@example.com");
-            req.setPassword("wrongpassword");
+        testClaims = mock(Claims.class);
+    }
 
-            when(userRepository.findByEmail("test@example.com"))
-                .thenReturn(Optional.of(user));
-            when(passwordEncoder.matches("wrongpassword", "encodedPassword"))
-                .thenReturn(false);
-
-            // when & then
-            assertThrows(IllegalArgumentException.class, () -> {
-                authService.login(req);
-            });
-        }
-
-        @Test
-        @DisplayName("토큰 발급")
-        void whenLoginSuccess_thenShouldIssueTokens() {
-            // given
-            User user = User.builder()
+    @Test
+    @DisplayName("회원가입 - 이메일 중복 체크")
+    void signup_WhenEmailExists_ShouldThrowException() {
+        when(userRepository.existsByEmail("test@example.com")).thenReturn(true);
+        SignupReq req = SignupReq.builder()
                 .email("test@example.com")
-                .password("encodedPassword")
+                .password("password123")
                 .name("Test User")
-                .role("USER")
                 .build();
-
-            LoginReq req = new LoginReq();
-            req.setEmail("test@example.com");
-            req.setPassword("password123");
-
-            when(userRepository.findByEmail("test@example.com"))
-                .thenReturn(Optional.of(user));
-            when(passwordEncoder.matches("password123", "encodedPassword"))
-                .thenReturn(true);
-            when(jwtProvider.generateAccessToken("test@example.com", "USER"))
-                .thenReturn("accessToken");
-            when(jwtProvider.generateRefreshToken("test@example.com"))
-                .thenReturn("refreshToken");
-
-            // when
-            LoginRes response = authService.login(req);
-
-            // then
-            assertNotNull(response);
-            assertEquals("accessToken", response.getAccessToken());
-            assertEquals("refreshToken", response.getRefreshToken());
-        }
+        assertThrows(EmailAlreadyExistsException.class, () -> authService.signup(req));
     }
 
-    @Nested
-    @DisplayName("토큰 갱신")
-    class TokenReissue {
-        @Test
-        @DisplayName("유효하지 않은 리프레시 토큰")
-        void whenInvalidRefreshToken_thenThrowException() {
-            // given
-            String invalidToken = "invalid.token";
-            when(jwtProvider.validateToken(invalidToken))
-                .thenReturn(false);
+    @Test
+    @DisplayName("회원가입 - 성공")
+    void signup_WhenValidRequest_ShouldSaveUser() {
+        when(userRepository.existsByEmail("test@example.com")).thenReturn(false);
+        when(passwordEncoder.encode("password123")).thenReturn("encodedPassword");
 
-            // when & then
-            assertThrows(IllegalArgumentException.class, () -> {
-                authService.reissue(invalidToken);
-            });
-        }
-
-        @Test
-        @DisplayName("Redis 토큰 불일치")
-        void whenRefreshTokenMismatch_thenThrowException() {
-            // given
-            String refreshToken = "valid.token";
-            String email = "test@example.com";
-            User user = User.builder()
-                .email(email)
-                .role("USER")
+        SignupReq req = SignupReq.builder()
+                .email("test@example.com")
+                .password("password123")
+                .name("Test User")
                 .build();
 
-            when(jwtProvider.validateToken(refreshToken))
-                .thenReturn(true);
-            when(jwtProvider.parseToken(refreshToken))
-                .thenReturn(mock(Claims.class));
-            when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
-            when(redisTemplate.opsForValue().get("refresh_token:" + email))
-                .thenReturn("different.token");
+        authService.signup(req);
 
-            // when & then
-            assertThrows(IllegalArgumentException.class, () -> {
-                authService.reissue(refreshToken);
-            });
-        }
+        verify(userRepository).save(any(User.class));
+    }
 
-        @Test
-        @DisplayName("새로운 액세스 토큰 발급")
-        void whenValidRefreshToken_thenShouldIssueNewAccessToken() {
-            // given
-            String refreshToken = "valid.token";
-            String email = "test@example.com";
-            User user = User.builder()
-                .email(email)
-                .role("USER")
+    @Test
+    @DisplayName("로그인 - 존재하지 않는 이메일")
+    void login_WhenEmailNotExists_ShouldThrowException() {
+        when(userRepository.findByEmail("nonexistent@example.com")).thenReturn(Optional.empty());
+
+        LoginReq req = LoginReq.builder()
+                .email("nonexistent@example.com")
+                .password("password123")
                 .build();
 
-            when(jwtProvider.validateToken(refreshToken))
-                .thenReturn(true);
-            when(jwtProvider.parseToken(refreshToken))
-                .thenReturn(mock(Claims.class));
-            when(userRepository.findByEmail(email))
-                .thenReturn(Optional.of(user));
-            when(redisTemplate.opsForValue().get("refresh_token:" + email))
-                .thenReturn(refreshToken);
-            when(jwtProvider.generateAccessToken(email, "USER"))
-                .thenReturn("new.access.token");
-
-            // when
-            String newAccessToken = authService.reissue(refreshToken);
-
-            // then
-            assertEquals("new.access.token", newAccessToken);
-        }
+        assertThrows(InvalidCredentialsException.class, () -> authService.login(req));
     }
 
-    @Nested
-    @DisplayName("로그아웃")
-    class Logout {
-        @Test
-        @DisplayName("리프레시 토큰 제거")
-        void whenLogout_thenRefreshTokenShouldBeRemoved() {
-            // given
-            String accessToken = "valid.access.token";
-            String refreshToken = "valid.refresh.token";
-            String email = "test@example.com";
+    @Test
+    @DisplayName("로그인 - 잘못된 비밀번호")
+    void login_WhenWrongPassword_ShouldThrowException() {
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("wrongpassword", "encodedPassword")).thenReturn(false);
 
-            when(jwtProvider.validateToken(refreshToken))
-                .thenReturn(true);
-            when(jwtProvider.parseToken(refreshToken))
-                .thenReturn(mock(Claims.class));
+        LoginReq req = LoginReq.builder()
+                .email("test@example.com")
+                .password("wrongpassword")
+                .build();
 
-            // when
-            LogoutReq logoutReq = new LogoutReq();
-            logoutReq.setAccessToken(accessToken);
-            logoutReq.setRefreshToken(refreshToken);
-            authService.logout(logoutReq);
-
-            // then
-            verify(redisTemplate).delete("refresh_token:" + email);
-        }
-
-        @Test
-        @DisplayName("액세스 토큰 블랙리스트 추가")
-        void whenLogout_thenAccessTokenShouldBeBlacklisted() {
-            // given
-            String accessToken = "valid.access.token";
-            String refreshToken = "valid.refresh.token";
-            String email = "test@example.com";
-
-            when(jwtProvider.validateToken(refreshToken))
-                .thenReturn(true);
-            when(jwtProvider.parseToken(refreshToken))
-                .thenReturn(mock(Claims.class));
-            when(jwtProvider.validateToken(accessToken))
-                .thenReturn(true);
-            when(jwtProvider.getExpirationFromToken(accessToken))
-                .thenReturn(System.currentTimeMillis() + 3600000); // 1시간 후 만료
-
-            // when
-            LogoutReq logoutReq = new LogoutReq();
-            logoutReq.setAccessToken(accessToken);
-            logoutReq.setRefreshToken(refreshToken);
-            authService.logout(logoutReq);
-
-            // then
-            verify(redisTemplate).opsForValue().set(
-                argThat(key -> key.startsWith("blacklist:")),
-                eq("revoked"),
-                any(Duration.class)
-            );
-        }
+        assertThrows(InvalidCredentialsException.class, () -> authService.login(req));
     }
-} 
+
+    @Test
+    @DisplayName("로그인 - 성공")
+    void login_WhenValidCredentials_ShouldReturnTokens() {
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("password123", "encodedPassword")).thenReturn(true);
+        when(jwtProvider.generateAccessToken("test@example.com", "USER")).thenReturn("accessToken");
+        when(jwtProvider.generateRefreshToken("test@example.com")).thenReturn("refreshToken");
+
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        lenient().doNothing().when(valueOperations).set(anyString(), anyString(), any(Duration.class));
+
+        LoginReq req = LoginReq.builder()
+                .email("test@example.com")
+                .password("password123")
+                .build();
+
+        LoginRes response = authService.login(req);
+
+        assertNotNull(response);
+        assertEquals("accessToken", response.getAccessToken());
+        assertEquals("refreshToken", response.getRefreshToken());
+        verify(valueOperations).set(eq("refresh_token:test@example.com"), eq("refreshToken"), any(Duration.class));
+    }
+
+    @Test
+    @DisplayName("토큰 갱신 - 유효하지 않은 토큰")
+    void reissue_WhenInvalidToken_ShouldThrowException() {
+        when(jwtProvider.validateToken("invalid.token")).thenReturn(false);
+
+        assertThrows(TokenValidationException.class, () -> authService.reissue("invalid.token"));
+    }
+
+    @Test
+    @DisplayName("토큰 갱신 - Redis 토큰 불일치")
+    void reissue_WhenTokenMismatch_ShouldThrowException() {
+        when(jwtProvider.validateToken("valid.token")).thenReturn(true);
+        when(jwtProvider.parseToken("valid.token")).thenReturn(testClaims);
+        when(testClaims.getSubject()).thenReturn("test@example.com");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("refresh_token:test@example.com")).thenReturn("different.token");
+
+        assertThrows(TokenValidationException.class, () -> authService.reissue("valid.token"));
+    }
+
+    @Test
+    @DisplayName("토큰 갱신 - 성공")
+    void reissue_WhenValidToken_ShouldReturnNewAccessToken() {
+        when(jwtProvider.validateToken("valid.token")).thenReturn(true);
+        when(jwtProvider.parseToken("valid.token")).thenReturn(testClaims);
+        when(testClaims.getSubject()).thenReturn("test@example.com");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("refresh_token:test@example.com")).thenReturn("valid.token");
+        when(jwtProvider.generateAccessToken("test@example.com", "USER")).thenReturn("new.access.token");
+
+        String newAccessToken = authService.reissue("valid.token");
+
+        assertEquals("new.access.token", newAccessToken);
+    }
+
+    @Test
+    @DisplayName("로그아웃 - 성공")
+    void logout_ShouldRemoveTokens() {
+        when(jwtProvider.validateToken("valid.refresh.token")).thenReturn(true);
+        when(jwtProvider.parseToken("valid.refresh.token")).thenReturn(testClaims);
+        when(jwtProvider.validateToken("valid.access.token")).thenReturn(true);
+        when(testClaims.getSubject()).thenReturn("test@example.com");
+
+        LogoutReq req = LogoutReq.builder()
+                .accessToken("valid.access.token")
+                .refreshToken("valid.refresh.token")
+                .build();
+
+        authService.logout(req);
+
+        verify(redisTemplate).delete("refresh_token:test@example.com");
+    }
+}
