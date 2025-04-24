@@ -1,0 +1,17 @@
+Table users {
+  id int [pk, increment]
+  email varchar [unique, not null]
+  password varchar
+  nickname varchar
+  role varchar
+  provider varchar
+  created_at datetime
+  updated_at datetime
+}
+
+Table refresh_tokens {
+  id int [pk, increment]
+  user_id int [ref: > users.id]
+  token varchar
+  expired_at datetime
+}

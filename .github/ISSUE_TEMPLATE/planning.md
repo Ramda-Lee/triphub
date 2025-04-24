@@ -1,8 +1,7 @@
 ---
 name: Planning
 about: 일정 및 기획을 정리합니다
-title: "[planning] "
-labels: planning
+title: "[N주차] "
 ---
 
 ## 🎯 목표
