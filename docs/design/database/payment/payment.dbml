@@ -1,0 +1,55 @@
+// 결제 서비스 데이터베이스 모델링
+
+Table payment {
+  id bigint [pk, increment]
+  reservation_id bigint
+  amount decimal
+  payment_method varchar
+  status varchar
+  payment_date timestamp
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table payment_method {
+  id bigint [pk, increment]
+  user_id bigint
+  type varchar
+  provider varchar
+  last_four_digits varchar
+  expiry_date varchar
+  is_default boolean
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table refund {
+  id bigint [pk, increment]
+  payment_id bigint [ref: > payment.id]
+  amount decimal
+  reason varchar
+  status varchar
+  refund_date timestamp
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table payment_status {
+  id bigint [pk, increment]
+  payment_id bigint [ref: > payment.id]
+  status varchar
+  description text
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table payment_failure {
+  id bigint [pk, increment]
+  payment_id bigint [ref: > payment.id]
+  error_code varchar
+  error_message text
+  retry_count int [default: 0]
+  last_retry_at timestamp
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+} 

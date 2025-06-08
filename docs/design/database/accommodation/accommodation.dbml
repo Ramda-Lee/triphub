@@ -1,0 +1,74 @@
+// 숙소 서비스 데이터베이스 모델링
+
+Table accommodation {
+  id bigint [pk, increment]
+  name varchar
+  description text
+  address varchar
+  latitude decimal
+  longitude decimal
+  status varchar
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table accommodation_image {
+  id bigint [pk, increment]
+  accommodation_id bigint [ref: > accommodation.id]
+  image_url varchar
+  image_order int
+  type varchar // THUMBNAIL, DETAIL, ROOM
+  status varchar
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table room {
+  id bigint [pk, increment]
+  accommodation_id bigint [ref: > accommodation.id]
+  name varchar
+  type varchar
+  capacity int
+  base_price decimal
+  status varchar
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table room_image {
+  id bigint [pk, increment]
+  room_id bigint [ref: > room.id]
+  image_url varchar
+  image_order int
+  status varchar
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table availability {
+  id bigint [pk, increment]
+  room_id bigint [ref: > room.id]
+  date date
+  is_available boolean [default: true]
+  price decimal
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table pricing_policy {
+  id bigint [pk, increment]
+  room_id bigint [ref: > room.id]
+  start_date date
+  end_date date
+  price_multiplier decimal
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+Table wishlist {
+  id bigint [pk, increment]
+  user_id bigint
+  accommodation_id bigint [ref: > accommodation.id]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+} 
